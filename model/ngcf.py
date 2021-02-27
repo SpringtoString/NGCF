@@ -187,7 +187,11 @@ class NGCF(nn.Module):
             ego_embedding = self.GCN_W1[i](T) + self.GCN_W2[i](torch.mul(T, all_embeddings[i]))
             ego_embedding = nn.LeakyReLU(negative_slope=0.2)(ego_embedding)
             ego_embedding = nn.Dropout(p=self.drop_rate)(ego_embedding)
-            all_embeddings.append(ego_embedding)
+            # all_embeddings.append(ego_embedding)
+
+            # 原程序的操作
+            norm_embedding = F.normalize(ego_embedding, p=2, dim=1)
+            all_embeddings.append(norm_embedding)
 
         E = (1.0 / len(all_embeddings)) * sum(all_embeddings)
         user_emb_matrix = E[:self.n_user, :]
@@ -253,23 +257,24 @@ class NGCF(nn.Module):
                     total_emb_loss = total_emb_loss + reg_emb_loss.item()
                     total_loss = total_loss + loss.item()
 
-                epoch_time = time.time() - start_time
-                print('epoch %d %.2fs train loss is [%.4f = %.4f + %.4f] ' % (epoch, epoch_time,
-                            total_loss / n_batch, total_mf_loss/n_batch, total_emb_loss/n_batch))
+                if verbose>0:
+                    epoch_time = time.time() - start_time
+                    print('epoch %d %.2fs train loss is [%.4f = %.4f + %.4f] ' % (epoch, epoch_time,
+                                total_loss / n_batch, total_mf_loss/n_batch, total_emb_loss/n_batch))
 
-            start_time = time.time()
-            result = self.test(batch_size=batch_size)
-            eval_time = time.time() - start_time
-
-            print(
-                'epoch %d %.2fs test precision is [%.4f %.4f] recall is [%.4f %.4f] ndcg is [%.4f %.4f] hit_ratio is [%.4f %.4f] MAP is [%.4f %.4f] auc is %.4f ' %
-                (epoch, eval_time,
-                 result['precision'][0], result['precision'][-1],
-                 result['recall'][0], result['recall'][-1],
-                 result['ndcg'][0],result['ndcg'][-1],
-                 result['hit_ratio'][0],result['hit_ratio'][-1],
-                 result['MAP'][0], result['MAP'][-1],
-                 result['auc']))
+            if verbose > 0 and epoch%verbose==0:
+                start_time = time.time()
+                result = self.test(batch_size=batch_size)
+                eval_time = time.time() - start_time
+                print(
+                    'epoch %d %.2fs test precision is [%.4f %.4f] recall is [%.4f %.4f] ndcg is [%.4f %.4f] hit_ratio is [%.4f %.4f] MAP is [%.4f %.4f] auc is %.4f ' %
+                    (epoch, eval_time,
+                     result['precision'][0], result['precision'][-1],
+                     result['recall'][0], result['recall'][-1],
+                     result['ndcg'][0],result['ndcg'][-1],
+                     result['hit_ratio'][0],result['hit_ratio'][-1],
+                     result['MAP'][0], result['MAP'][-1],
+                     result['auc']))
             print(" ")
 
     def test(self, batch_size=256, ):
